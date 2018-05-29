@@ -4,11 +4,11 @@ phases:
   build:
     commands:
       - echo Build started on `date`
-      - mvn test
+      - mvn -f jaws/pom.xml test
   post_build:
     commands:
       - echo Build completed on `date`
-      - mvn package
+      - mvn -f jaws/pom.xml  package
 artifacts:
   files:
-    - target/jaws-0.0.2-SNAPSHOT.jar
+    - jaws/target/jaws-0.0.2-SNAPSHOT.jar
