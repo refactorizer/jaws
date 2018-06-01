@@ -4,16 +4,16 @@
 
 	<groupId>com.github.atramos</groupId>
 	<artifactId>jaws</artifactId>
-	<version>0.0.2-SNAPSHOT</version>
+	<version>0.3</version>
 	<packaging>jar</packaging>
 
-	<name>spring-aws</name>
+	<name>jaws</name>
 	<url>http://maven.apache.org</url>
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<aws.version>1.11.109</aws.version>
-		<org.springframework.version>4.3.10.RELEASE</org.springframework.version>
+		<s3-maven-repo>s3://dmh.bucket/maven/internal</s3-maven-repo>
 	</properties>
 
 	<dependencies>
@@ -27,7 +27,7 @@
 			<artifactId>aws-java-sdk-dynamodb</artifactId>
 			<version>${aws.version}</version>
 		</dependency>
-		
+
 		<!-- https://mvnrepository.com/artifact/com.fasterxml.jackson.module/jackson-datatype-jsr310 -->
 		<dependency>
 			<groupId>com.fasterxml.jackson.datatype</groupId>
@@ -49,5 +49,20 @@
 				</configuration>
 			</plugin>
 		</plugins>
+		<extensions>
+			<extension>
+				<groupId>org.kuali.maven.wagons</groupId>
+				<artifactId>maven-s3-wagon</artifactId>
+				<version>1.2.1</version>
+			</extension>
+		</extensions>
 	</build>
+
+	<distributionManagement>
+		<repository>
+			<id>s3.artifacts</id>
+			<url>${s3-maven-repo}</url>
+		</repository>
+	</distributionManagement>
+
 </project>

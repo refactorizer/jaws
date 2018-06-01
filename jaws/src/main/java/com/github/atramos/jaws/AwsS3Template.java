@@ -14,7 +14,9 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.function.Supplier;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.ZipEntry;
@@ -187,6 +189,22 @@ public class AwsS3Template {
 			return om.readValue(is2, new TypeReference<T>(){});
 		}
 	}
+
+	/**
+	 * Retrieve a file from S3 (list of JSON objects) or if absent, compute and store it for future retrieval.
+	 *  
+	 */
+	public <T> List<T> getList(String key, Class<T> cls, Supplier<List<T>> compute) {
+		if(exists(key)) {
+			return getList(key, cls, true);
+		}
+		else {
+			List<T> info = compute.get();
+			putList(key, info);
+			return info;
+		}
+	}
+	
 	/**
 	 * Retrieve a list of JSON objects previously stored in object-per-line Athena compatible format in a given S3 key.
 	 * 
@@ -200,6 +218,17 @@ public class AwsS3Template {
 			throw new RuntimeException(key, e);
 		}
 	}
+	
+	/**
+	 * Fully parameterized implementation of getList().
+	 *  
+	 * @param cls
+	 * @param parms
+	 * @return
+	 * @throws JsonParseException
+	 * @throws JsonMappingException
+	 * @throws IOException
+	 */
 	public <T> List<T> getList(Class<T> cls, AwsS3FetchParams parms) throws JsonParseException, JsonMappingException, IOException {
 		byte[] buf = fetch(parms);
 		try(InputStream is = new ByteArrayInputStream(buf)) {
@@ -238,6 +267,31 @@ public class AwsS3Template {
 		}
 	}
 
+	/**
+	 * Write objects to S3, in Athena-compatible format or for retrieval with getList().
+	 * 
+	 * @param path
+	 * @param list
+	 * @param cls
+	 */
+	public <T> void putList(String path, List<T> list) {
+		
+		String data = list.stream().map(t -> {
+			try {
+				return om.writeValueAsString(t);
+			} catch (JsonProcessingException e) {
+				throw new RuntimeException(e);
+			}
+		}).collect(Collectors.joining("\n"));
+		
+		// we can't fix S3, so any IOException is considered a fault
+		try {
+			gzipWrite(path, data);
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+	}
+	
 	/**
 	 * Write a JSON string to S3, compressed w/ gzip.
 	 * 

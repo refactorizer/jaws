@@ -3,12 +3,4 @@ version: 0.2
 phases:
   build:
     commands:
-      - echo Build started on `date`
-      - mvn -f jaws/pom.xml test
-  post_build:
-    commands:
-      - echo Build completed on `date`
-      - mvn -f jaws/pom.xml  package
-artifacts:
-  files:
-    - jaws/target/jaws-0.0.2-SNAPSHOT.jar
+      - mvn -f jaws/pom.xml deploy
