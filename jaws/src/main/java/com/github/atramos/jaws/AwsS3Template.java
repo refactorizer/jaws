@@ -200,7 +200,7 @@ public class AwsS3Template {
 		}
 		else {
 			List<T> info = compute.get();
-			putList(key, info);
+			putList(key, cls, info);
 			return info;
 		}
 	}
@@ -274,11 +274,11 @@ public class AwsS3Template {
 	 * @param list
 	 * @param cls
 	 */
-	public <T> void putList(String path, List<T> list) {
+	public <T> void putList(String path, Class<T> cls, List<T> list) {
 		
 		String data = list.stream().map(t -> {
 			try {
-				return om.writeValueAsString(t);
+				return om.writerFor(cls).writeValueAsString(t);
 			} catch (JsonProcessingException e) {
 				throw new RuntimeException(e);
 			}
