@@ -23,6 +23,8 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
+import com.amazonaws.regions.DefaultAwsRegionProviderChain;
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3Client;
@@ -303,22 +305,35 @@ public class AwsS3Template {
 		this.gzipWrite(path, data.getBytes());
 	}
 
+	/**
+	 * Compress and write bytes, adding json-gzip metadata.
+	 * 
+	 * @param path
+	 * @param data
+	 * @throws IOException
+	 */
 	public void gzipWrite(String path, byte[] data) throws IOException {
-		AmazonS3Client s3 = new AmazonS3Client(awsCredentials);
-		s3.setRegion(region);
-
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();
 		GZIPOutputStream gzo = new GZIPOutputStream(baos);
 		gzo.write(data);
 		gzo.close();
-		ObjectMetadata meta = new ObjectMetadata();
 		byte[] ba = baos.toByteArray();
+		gzipMetaWrite(path, ba);
+		cacheWrite(cacheLocation(path), ba);
+		logger.info("wrote " + ba.length + " bytes to s3://" + bucket + "/" + path);
+	}
+
+	/**
+	 * Write an already compressed blob of json data, with appropriate meta-data.
+	 * 
+	 */
+	public void gzipMetaWrite(String path, byte[] ba) {
+		AmazonS3Client s3 = getClient();
+		ObjectMetadata meta = new ObjectMetadata();
 		meta.setContentLength(ba.length);
 		meta.setContentType("application/json");
 		meta.setContentEncoding("gzip");
 		s3.putObject(bucket, path, new ByteArrayInputStream(ba), meta);
-		cacheWrite(cacheLocation(path), ba);
-		logger.info("wrote " + ba.length + " bytes to s3://" + bucket + "/" + path);
 	}
 
 	public void setRegion(String region) {
@@ -336,8 +351,7 @@ public class AwsS3Template {
 	 * @return
 	 */
 	public List<String> listKeys(String prefix) {
-		AmazonS3Client s3client = new AmazonS3Client(awsCredentials);
-		s3client.setRegion(region);
+		AmazonS3Client s3client = getClient();
 		List<String> out = new ArrayList<>();
 		final ListObjectsV2Request req = new ListObjectsV2Request().withBucketName(bucket).withPrefix(prefix);
 		ListObjectsV2Result result;
@@ -350,10 +364,15 @@ public class AwsS3Template {
 		} while (result.isTruncated() == true);
 		return out;
 	}
-	
-	public boolean exists(String path) {
+
+	public AmazonS3Client getClient() {
 		AmazonS3Client s3client = new AmazonS3Client(awsCredentials);
 		s3client.setRegion(region);
+		return s3client;
+	}
+	
+	public boolean exists(String path) {
+		AmazonS3Client s3client = getClient();
 		return s3client.doesObjectExist(bucket, path);
 	}
 
@@ -361,4 +380,8 @@ public class AwsS3Template {
 		this.awsCredentials = awsCredentials;
 	}
 
+	public AwsS3Template() {
+		this(new DefaultAWSCredentialsProviderChain());
+		region = Region.getRegion(Regions.fromName(new DefaultAwsRegionProviderChain().getRegion()));
+	}
 }

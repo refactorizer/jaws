@@ -82,7 +82,7 @@ public class AwsS3Cache<T> {
 				this.lastError = Instant.now();
 				return null;
 			}
-			json = om.writeValueAsString(value);
+			json = om.writerFor(cls).writeValueAsString(value);
 
 			this.put(addressUC, json);
 		}
