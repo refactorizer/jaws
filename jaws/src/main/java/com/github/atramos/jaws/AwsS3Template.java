@@ -14,6 +14,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -351,18 +352,21 @@ public class AwsS3Template {
 	 * @return
 	 */
 	public List<String> listKeys(String prefix) {
-		AmazonS3Client s3client = getClient();
 		List<String> out = new ArrayList<>();
+		listKeys(prefix, out::add);
+		return out;
+	}
+	public void listKeys(String prefix, Consumer<String> out) {
+		AmazonS3Client s3client = getClient();
 		final ListObjectsV2Request req = new ListObjectsV2Request().withBucketName(bucket).withPrefix(prefix);
 		ListObjectsV2Result result;
 		do {
 			result = s3client.listObjectsV2(req);
 			for (S3ObjectSummary objectSummary : result.getObjectSummaries()) {
-				out.add(objectSummary.getKey());
+				out.accept(objectSummary.getKey());
 			}
 			req.setContinuationToken(result.getNextContinuationToken());
 		} while (result.isTruncated() == true);
-		return out;
 	}
 
 	public AmazonS3Client getClient() {
