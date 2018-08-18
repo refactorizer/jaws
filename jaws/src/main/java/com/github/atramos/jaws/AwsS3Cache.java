@@ -124,7 +124,7 @@ public class AwsS3Cache<T> {
 		}
 	}
 
-	private synchronized Map<String, String> map() {
+	public synchronized Map<String, String> map() {
 		if (this.map == null) {
 			this.map = getCache(path);
 		}
