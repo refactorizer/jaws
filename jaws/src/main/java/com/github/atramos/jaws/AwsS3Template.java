@@ -134,8 +134,7 @@ public class AwsS3Template {
 					return Files.readAllBytes(cacheFile.toPath());
 			}
 
-			AmazonS3Client s3 = new AmazonS3Client(awsCredentials);
-			s3.setRegion(region);
+			AmazonS3Client s3 = getClient();
 			
 			final GetObjectRequest getObjectRequest = new GetObjectRequest(bucket, parameterObject.path);
 
@@ -371,6 +370,9 @@ public class AwsS3Template {
 
 	public AmazonS3Client getClient() {
 		AmazonS3Client s3client = new AmazonS3Client(awsCredentials);
+		if(region == null) {
+			region = Region.getRegion(Regions.fromName(new DefaultAwsRegionProviderChain().getRegion()));
+		}
 		s3client.setRegion(region);
 		return s3client;
 	}
@@ -386,6 +388,5 @@ public class AwsS3Template {
 
 	public AwsS3Template() {
 		this(new DefaultAWSCredentialsProviderChain());
-		region = Region.getRegion(Regions.fromName(new DefaultAwsRegionProviderChain().getRegion()));
 	}
 }
