@@ -10,6 +10,7 @@ import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -123,11 +124,21 @@ public class AwsS3Cache<T> {
 		}
 	}
 
-	public synchronized Map<String, String> map() {
+	private synchronized Map<String, String> map() {
 		if (this.map == null) {
 			this.map = getCache(path);
 		}
 		return this.map;
+	}
+	
+	public Stream<T> values() {
+		return map().values().stream().map(json -> {
+			try {
+				return om.readValue(json, cls);
+			} catch (IOException e) {
+				throw new RuntimeException(e);
+			}
+		});
 	}
 
 	private synchronized Map<String, String> getCache(String path) {
