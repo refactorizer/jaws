@@ -2,23 +2,31 @@ package com.github.atramos.jaws;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class AwsS3Cache<T> {
 
 	public static final String CACHE_DELIMITER = "|";
 
-	private static final int FLUSH_COUNT = 10000;
+	private static final int FLUSH_COUNT = 100000;
 
 	private static ObjectMapper om = new ObjectMapper();
 
@@ -41,11 +49,9 @@ public class AwsS3Cache<T> {
 	}
 
 	public AwsS3Cache(String path, Class<T> cls, AwsS3Template s3) {
-		logger.info("Initializing " + cls.toString() + " " + path);
 		this.s3 = s3;
 		this.cls = cls;
 		this.path = path;
-		logger.info("Init ok");
 	}
 
 	public boolean containsKey(String address) {
@@ -83,14 +89,22 @@ public class AwsS3Cache<T> {
 				this.lastError = Instant.now();
 				return null;
 			}
-			json = om.writerFor(cls).writeValueAsString(value);
-
-			this.put(addressUC, json);
+			json = put(addressUC, value);
 		}
 		else { // cache-hit
 			json = map().get(addressUC);
 		}
 
+		return parse(json);
+	}
+
+	private String put(final String addressUC, final T value) throws JsonProcessingException, IOException {
+		String json = om.writerFor(cls).writeValueAsString(value);
+		this.put(addressUC, json);
+		return json;
+	}
+
+	private T parse(String json) throws IOException, JsonParseException, JsonMappingException {
 		if (json == null || json.trim().equalsIgnoreCase("null")) { return null; }
 		return om.readValue(json, cls);
 	}
@@ -156,5 +170,27 @@ public class AwsS3Cache<T> {
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
+	}
+
+	public synchronized <U> Set<T> get(List<U> keys, Function<U,String> keyer, Function<List<U>,List<T>> func) throws JsonParseException, JsonMappingException, IOException {
+		Map<String, String> tMap = map();
+		List<U> remain = new ArrayList<>();
+		Set<T> out = new HashSet<>(); 
+		for(U key: keys) {
+			String keyStr = keyer.apply(key);
+			if(tMap.containsKey(keyStr)) {
+				out.add(parse(tMap.get(keyStr)));
+			}
+			else {
+				remain.add(key);
+			}
+		}
+		logger.info("bulk get: out=" + out.size() + ", remain=" + remain.size());
+		List<T> fresh = func.apply(remain);
+		for(int i=0; i < fresh.size(); ++i) {
+			this.put(keyer.apply(remain.get(i)), fresh.get(i));
+			out.add(fresh.get(i));
+		}
+		return out;
 	}
 }
