@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.logging.Level;
@@ -38,7 +39,7 @@ public class AwsS3Cache<T> {
 
 	protected AwsS3Template s3;
 
-	private int dirtyCount = 0;
+	private AtomicInteger dirtyCount = new AtomicInteger(0);
 
 	private Instant lastError;
 
@@ -111,13 +112,13 @@ public class AwsS3Cache<T> {
 
 	public void put(final String addressUC, String json) throws IOException {
 		map().put(addressUC, json);
-		if (dirtyCount++ > FLUSH_COUNT) {
+		if (dirtyCount.incrementAndGet() > FLUSH_COUNT) {
 			flush();
 		}
 	}
 
 	public synchronized void flush(boolean force, boolean refresh) throws IOException {
-		if (force || dirtyCount != 0) {
+		if (force || dirtyCount.get() != 0) {
 
 			if (refresh) {
 				final Map<String, String> existing = getCache(path);
@@ -134,7 +135,7 @@ public class AwsS3Cache<T> {
 
 			s3.gzipWrite(path, data);
 
-			dirtyCount = 0;
+			dirtyCount.set(0);
 		}
 	}
 
@@ -172,14 +173,14 @@ public class AwsS3Cache<T> {
 		}
 	}
 
-	public synchronized <U> Set<T> get(List<U> keys, Function<U,String> keyer, Function<List<U>,List<T>> func) throws JsonParseException, JsonMappingException, IOException {
+	public synchronized <U> Map<U,T> get(Set<U> keys, Function<U,String> keyer, Function<List<U>,List<T>> func) throws JsonParseException, JsonMappingException, IOException {
 		Map<String, String> tMap = map();
 		List<U> remain = new ArrayList<>();
-		Set<T> out = new HashSet<>(); 
+		Map<U,T> out = new HashMap<>(); 
 		for(U key: keys) {
 			String keyStr = keyer.apply(key);
 			if(tMap.containsKey(keyStr)) {
-				out.add(parse(tMap.get(keyStr)));
+				out.put(key, parse(tMap.get(keyStr)));
 			}
 			else {
 				remain.add(key);
@@ -189,7 +190,7 @@ public class AwsS3Cache<T> {
 		List<T> fresh = func.apply(remain);
 		for(int i=0; i < fresh.size(); ++i) {
 			this.put(keyer.apply(remain.get(i)), fresh.get(i));
-			out.add(fresh.get(i));
+			out.put(remain.get(i), fresh.get(i));
 		}
 		return out;
 	}

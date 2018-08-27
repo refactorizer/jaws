@@ -4,7 +4,7 @@
 
 	<groupId>com.github.atramos</groupId>
 	<artifactId>jaws</artifactId>
-	<version>0.39</version>
+	<version>0.40</version>
 	<packaging>jar</packaging>
 
 	<name>jaws</name>
