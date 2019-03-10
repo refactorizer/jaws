@@ -319,7 +319,7 @@ public class AwsS3Template {
 	 * @param path
 	 * @param list
 	 */
-	public void putList(String path, List<JsonNode> list, boolean cache) {
+	public void putList(String path, Collection<JsonNode> list, boolean cache) {
 		try {
 			byte[] ba = gzipEncode(list);
 			gzipMetaWrite(path, ba);
@@ -331,7 +331,7 @@ public class AwsS3Template {
 		}
 	}
 
-	public byte[] gzipEncode(List<JsonNode> list) throws IOException, JsonGenerationException, JsonMappingException {
+	public byte[] gzipEncode(Collection<JsonNode> list) throws IOException, JsonGenerationException, JsonMappingException {
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();
 		GZIPOutputStream gzo = new GZIPOutputStream(baos);
 		
