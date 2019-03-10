@@ -74,7 +74,17 @@ public class AwsS3Template {
 			throw new RuntimeException(e);
 		}
 	}
-	
+
+	public String gzipRead(AwsS3FetchParams params) {
+		byte[] b = fetch(params);
+		ByteArrayInputStream bais = new ByteArrayInputStream(b);
+		try {
+			return IOUtils.toString(new GZIPInputStream(bais));
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+	}
+
 	/**
 	 * Retrieve and unzip a file from S3, returning the path to the local copy.
 	 * @throws IOException 
