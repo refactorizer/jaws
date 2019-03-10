@@ -37,6 +37,7 @@ import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.amazonaws.util.IOUtils;
+import com.fasterxml.jackson.core.JsonGenerationException;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -64,10 +65,14 @@ public class AwsS3Template {
 		objectMapper.setDateFormat(new StdDateFormat().withColonInTimeZone(true));	
 	}
 	
-	public String gzipRead(String path, boolean skipStaleCheck) throws IOException {
+	public String gzipRead(String path, boolean skipStaleCheck) {
 		byte[] b = fetch(new AwsS3FetchParams(path).withSkipStaleCheck(skipStaleCheck));
 		ByteArrayInputStream bais = new ByteArrayInputStream(b);
-		return IOUtils.toString(new GZIPInputStream(bais));
+		try {
+			return IOUtils.toString(new GZIPInputStream(bais));
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
 	}
 	
 	/**
@@ -299,24 +304,38 @@ public class AwsS3Template {
 
 	/**
 	 * Write JSON to S3, in one-per-line Athena-compatible format or for retrieval with getList().
-	 */ 
-	public void putList(String path, List<JsonNode> list) {
-		String data = list.stream().map(t -> {
-			try {
-				return objectMapper.writeValueAsString(t);
-			} catch (JsonProcessingException e) {
-				throw new RuntimeException(e);
-			}
-		}).collect(Collectors.joining("\n"));
-		
-		// we can't fix S3, so any IOException is considered a fault
+	 * with Optional caching and Improved memory utilization 
+	 * 
+	 * @param path
+	 * @param list
+	 */
+	public void putList(String path, List<JsonNode> list, boolean cache) {
 		try {
-			gzipWrite(path, data);
+			byte[] ba = gzipEncode(list);
+			gzipMetaWrite(path, ba);
+			if(cache) {
+				cacheWrite(cacheLocation(path), ba);
+			}
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
 	}
 
+	public byte[] gzipEncode(List<JsonNode> list) throws IOException, JsonGenerationException, JsonMappingException {
+		ByteArrayOutputStream baos = new ByteArrayOutputStream();
+		GZIPOutputStream gzo = new GZIPOutputStream(baos);
+		
+		for(JsonNode item: list) {
+			byte[] b = objectMapper.writeValueAsBytes(item);
+			gzo.write(b);
+			gzo.write('\n');
+		}
+		
+		gzo.close();
+		byte[] ba = baos.toByteArray();
+		return ba;
+	}
+	
 	/**
 	 * Write a JSON string to S3, compressed w/ gzip.
 	 * 
@@ -357,6 +376,7 @@ public class AwsS3Template {
 		meta.setContentType("application/json");
 		meta.setContentEncoding("gzip");
 		s3.putObject(bucket, path, new ByteArrayInputStream(ba), meta);
+		logger.info("wrote " + ba.length + " bytes to s3://" + bucket + "/" + path);
 	}
 
 	public void setRegion(String region) {

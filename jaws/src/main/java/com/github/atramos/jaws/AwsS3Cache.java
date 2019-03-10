@@ -156,20 +156,16 @@ public class AwsS3Cache<T> {
 	}
 
 	private synchronized Map<String, String> getCache(String path) {
-		try {
-			if (!s3.exists(path)) {
-				logger.warning("Creating: " + path);
-				return new HashMap<>();
-			}
-			String content = s3.gzipRead(path, false);
-			final Map<String, String> collect = Arrays.stream(content.split("\n")).filter(line -> !line.isEmpty())
-					.map(line -> line.split("\\" + CACHE_DELIMITER, 2))
-					.collect(Collectors.toMap(a -> a[0].toUpperCase(), a -> a[1], (a, b) -> a));
-			logger.info("Read " + collect.size() + " entries from " + path);
-			return collect;
-		} catch (IOException e) {
-			throw new RuntimeException(e);
+		if (!s3.exists(path)) {
+			logger.warning("Creating: " + path);
+			return new HashMap<>();
 		}
+		String content = s3.gzipRead(path, false);
+		final Map<String, String> collect = Arrays.stream(content.split("\n")).filter(line -> !line.isEmpty())
+				.map(line -> line.split("\\" + CACHE_DELIMITER, 2))
+				.collect(Collectors.toMap(a -> a[0].toUpperCase(), a -> a[1], (a, b) -> a));
+		logger.info("Read " + collect.size() + " entries from " + path);
+		return collect;
 	}
 
 	public synchronized <U> Map<U,T> get(Set<U> keys, Function<U,String> keyer, Function<List<U>,List<T>> func) throws JsonParseException, JsonMappingException, IOException {
