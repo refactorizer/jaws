@@ -362,7 +362,6 @@ public class AwsS3Template {
 		byte[] ba = baos.toByteArray();
 		gzipMetaWrite(path, ba);
 		cacheWrite(cacheLocation(path), ba);
-		logger.info("wrote " + ba.length + " bytes to s3://" + bucket + "/" + path);
 	}
 
 	/**
