@@ -11,10 +11,12 @@ import java.io.InputStreamReader;
 import java.io.StringReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.logging.Logger;
@@ -248,6 +250,9 @@ public class AwsS3Template {
 	 * @throws IOException
 	 */
 	public <T> List<T> getList(Class<T> cls, AwsS3FetchParams parms) {
+		if(parms.nonexistentAsNull && !exists(parms.path)) {
+			return new ArrayList<>();
+		}
 		byte[] buf = fetch(parms);
 		try(InputStream is = new ByteArrayInputStream(buf)) {
 			InputStream is2 = parms.path.endsWith(".gz") ? new GZIPInputStream(is) : is;
@@ -415,6 +420,25 @@ public class AwsS3Template {
 			result = s3client.listObjectsV2(req);
 			for (S3ObjectSummary objectSummary : result.getObjectSummaries()) {
 				out.accept(objectSummary.getKey());
+			}
+			req.setContinuationToken(result.getNextContinuationToken());
+		} while (result.isTruncated() == true);
+	}
+
+	/**
+	 * list keys with their corresponding lastModified timestamps.
+	 * 
+	 * @param prefix
+	 * @param out
+	 */
+	public void listKeys(String prefix, BiConsumer<String,Date> out) {
+		AmazonS3Client s3client = getClient();
+		final ListObjectsV2Request req = new ListObjectsV2Request().withBucketName(bucket).withPrefix(prefix);
+		ListObjectsV2Result result;
+		do {
+			result = s3client.listObjectsV2(req);
+			for (S3ObjectSummary objectSummary : result.getObjectSummaries()) {
+				out.accept(objectSummary.getKey(), objectSummary.getLastModified());
 			}
 			req.setContinuationToken(result.getNextContinuationToken());
 		} while (result.isTruncated() == true);

@@ -9,6 +9,8 @@ public class AwsS3FetchParams {
 	public boolean cachedObjecReturnsNull;
 
 	public boolean noSave;
+	
+	public boolean nonexistentAsNull;
 
 	public AwsS3FetchParams(String path) {
 		this.path = path;
@@ -38,6 +40,11 @@ public class AwsS3FetchParams {
 	 */
 	public AwsS3FetchParams withNoSave(boolean b) {
 		noSave = b;
+		return this;
+	}
+
+	public AwsS3FetchParams withNonexistentAsNull() {
+		nonexistentAsNull = true;
 		return this;
 	}
 }
