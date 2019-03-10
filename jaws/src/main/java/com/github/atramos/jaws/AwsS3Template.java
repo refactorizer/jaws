@@ -12,6 +12,7 @@ import java.io.StringReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.function.Consumer;
@@ -42,6 +43,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.util.StdDateFormat;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 public class AwsS3Template {
@@ -54,9 +57,11 @@ public class AwsS3Template {
 	
 	private String bucket;
 
-	private ObjectMapper om = new ObjectMapper();
+	public ObjectMapper objectMapper = new ObjectMapper();
 	{
-		om.registerModule(new JavaTimeModule());
+		objectMapper.registerModule(new JavaTimeModule());
+		objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+		objectMapper.setDateFormat(new StdDateFormat().withColonInTimeZone(true));	
 	}
 	
 	public String gzipRead(String path, boolean skipStaleCheck) throws IOException {
@@ -188,7 +193,7 @@ public class AwsS3Template {
 		byte[] buf = fetch(new AwsS3FetchParams(key).withSkipStaleCheck(skipStaleCheck));
 		try(InputStream is = new ByteArrayInputStream(buf)) {
 			InputStream is2 = key.endsWith(".gz") ? new GZIPInputStream(is) : is;
-			return om.readValue(is2, new TypeReference<T>(){});
+			return objectMapper.readValue(is2, new TypeReference<T>(){});
 		}
 	}
 
@@ -214,11 +219,7 @@ public class AwsS3Template {
 	 * @return
 	 */
 	public <T> List<T> getList(String key, Class<T> cls, boolean skipStaleCheck) {
-		try {
-			return getList(cls, new AwsS3FetchParams(key).withSkipStaleCheck(skipStaleCheck));
-		} catch (IOException e) {
-			throw new RuntimeException(key, e);
-		}
+		return getList(cls, new AwsS3FetchParams(key).withSkipStaleCheck(skipStaleCheck));
 	}
 	
 	/**
@@ -231,7 +232,7 @@ public class AwsS3Template {
 	 * @throws JsonMappingException
 	 * @throws IOException
 	 */
-	public <T> List<T> getList(Class<T> cls, AwsS3FetchParams parms) throws JsonParseException, JsonMappingException, IOException {
+	public <T> List<T> getList(Class<T> cls, AwsS3FetchParams parms) {
 		byte[] buf = fetch(parms);
 		try(InputStream is = new ByteArrayInputStream(buf)) {
 			InputStream is2 = parms.path.endsWith(".gz") ? new GZIPInputStream(is) : is;
@@ -239,10 +240,12 @@ public class AwsS3Template {
 				List<T> list = new ArrayList<T>();
 				String jsonLine;
 				while ((jsonLine = br.readLine()) != null) {
-					list.add(om.readValue(jsonLine, cls));
+					list.add(objectMapper.readValue(jsonLine, cls));
 				}
 				return list;
 			}
+		} catch (IOException e) {
+			throw new RuntimeException(e);
 		}
 	}
 
@@ -258,7 +261,7 @@ public class AwsS3Template {
 			BufferedReader br = new BufferedReader(new StringReader(jsonLines));
 			String jsonLine;
 			while ((jsonLine = br.readLine()) != null) {
-				JsonNode json = om.readTree(jsonLine);
+				JsonNode json = objectMapper.readTree(jsonLine);
 				records.add(json);
 			}
 			return records;
@@ -270,17 +273,17 @@ public class AwsS3Template {
 	}
 
 	/**
-	 * Write objects to S3, in Athena-compatible format or for retrieval with getList().
+	 * Write objects to S3, in one-per-line Athena-compatible format or for retrieval with getList().
 	 * 
 	 * @param path
 	 * @param list
 	 * @param cls
 	 */
-	public <T> void putList(String path, Class<T> cls, List<T> list) {
+	public <T> void putList(String path, Class<T> cls, Collection<T> list) {
 		
 		String data = list.stream().map(t -> {
 			try {
-				return om.writerFor(cls).writeValueAsString(t);
+				return objectMapper.writerFor(cls).writeValueAsString(t);
 			} catch (JsonProcessingException e) {
 				throw new RuntimeException(e);
 			}
@@ -293,7 +296,27 @@ public class AwsS3Template {
 			throw new RuntimeException(e);
 		}
 	}
-	
+
+	/**
+	 * Write JSON to S3, in one-per-line Athena-compatible format or for retrieval with getList().
+	 */ 
+	public void putList(String path, List<JsonNode> list) {
+		String data = list.stream().map(t -> {
+			try {
+				return objectMapper.writeValueAsString(t);
+			} catch (JsonProcessingException e) {
+				throw new RuntimeException(e);
+			}
+		}).collect(Collectors.joining("\n"));
+		
+		// we can't fix S3, so any IOException is considered a fault
+		try {
+			gzipWrite(path, data);
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+	}
+
 	/**
 	 * Write a JSON string to S3, compressed w/ gzip.
 	 * 
