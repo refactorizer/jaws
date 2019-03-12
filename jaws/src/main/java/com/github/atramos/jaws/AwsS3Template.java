@@ -137,10 +137,14 @@ public class AwsS3Template {
 		return cached;
 	}
 
-	public InputStream gzipStream(String path, boolean skipStaleCheck) throws IOException {
-		byte[] b = fetch(new AwsS3FetchParams(path).withSkipStaleCheck(skipStaleCheck));
-		ByteArrayInputStream bais = new ByteArrayInputStream(b);
-		return new GZIPInputStream(bais);
+	public InputStream gzipStream(String path, boolean skipStaleCheck) {
+		try {
+			byte[] b = fetch(new AwsS3FetchParams(path).withSkipStaleCheck(skipStaleCheck));
+			ByteArrayInputStream bais = new ByteArrayInputStream(b);
+			return new GZIPInputStream(bais);
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
 	}
 
 	private byte[] fetch(AwsS3FetchParams parameterObject) {
