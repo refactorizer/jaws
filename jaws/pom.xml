@@ -4,7 +4,7 @@
 
 	<groupId>com.github.atramos</groupId>
 	<artifactId>jaws</artifactId>
-	<version>0.44</version>
+	<version>0.45</version>
 	<packaging>jar</packaging>
 
 	<name>jaws</name>
@@ -12,7 +12,7 @@
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<aws.version>1.11.109</aws.version>
+		<aws.version>1.11.519</aws.version>
 		<s3-maven-repo>s3://dmh.bucket/maven/internal</s3-maven-repo>
 	</properties>
 
