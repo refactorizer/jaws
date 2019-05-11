@@ -8,8 +8,14 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
+import com.fasterxml.jackson.annotation.JsonGetter;
+
 public class ServletLogEntry {
 	final public Instant server_ts;
+	@JsonGetter("server_ts")
+	public String getServerTs() {
+		return server_ts.toString();
+	}
 	final public String remote_ip;
 	final public String local_ip;
 	final public String method;
