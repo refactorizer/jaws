@@ -29,7 +29,7 @@ public class ServletLogEntry {
 	final public long time_elapsed;
 	final public String session_id;
 	final public Long user_id;
-	final public Integer agent_proxy;
+	final public int agent_proxy;
 	final public String agent_id;
 	final public Integer time_to_first_byte;
 	final public String thread_name;
@@ -53,7 +53,7 @@ public class ServletLogEntry {
 		this.time_elapsed = time_elapsed;
 		this.session_id = session_id;
 		this.user_id = user_id;
-		this.agent_proxy = agent_proxy;
+		this.agent_proxy = agent_proxy != null ? agent_proxy : 0;
 		this.agent_id = agent_id;
 		this.time_to_first_byte = time_to_first_byte;
 		this.thread_name = thread_name;

@@ -9,7 +9,6 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.sql.Types;
-import java.time.Instant;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Optional;
@@ -22,10 +21,8 @@ import javax.servlet.FilterConfig;
 import javax.servlet.ServletException;
 import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
-import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -119,7 +116,7 @@ public class ServletLoggerJdbc implements Filter {
 				else
 					statement.setNull(n, Types.BIGINT);
 				
-				statement.setInt(++n, e.agent_proxy != null ? e.agent_proxy : 0);
+				statement.setInt(++n, e.agent_proxy);
 				statement.setString(++n, e.agent_id);
 				statement.setInt(++n, e.time_to_first_byte);
 				statement.setString(++n, e.thread_name);
