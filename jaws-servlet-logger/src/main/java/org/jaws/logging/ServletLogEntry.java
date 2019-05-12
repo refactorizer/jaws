@@ -35,38 +35,37 @@ public class ServletLogEntry {
 	final public String thread_name;
 	final public String host;
 
-	public ServletLogEntry(Instant server_ts, String remote_ip, String local_ip, String method, String url,
-			String query_string, String protocol, int http_status, Integer bytes_sent, String referer,
-			String user_agent, long time_elapsed, String session_id, Long user_id, Integer agent_proxy, String agent_id,
-			Integer time_to_first_byte, String thread_name, String host) {
-		this.server_ts = server_ts;
-		this.remote_ip = remote_ip;
-		this.local_ip = local_ip;
-		this.method = method;
-		this.url = url;
-		this.query_string = query_string;
-		this.protocol = protocol;
-		this.http_status = http_status;
-		this.bytes_sent = bytes_sent;
-		this.referer = referer;
-		this.user_agent = user_agent;
-		this.time_elapsed = time_elapsed;
-		this.session_id = session_id;
-		this.user_id = user_id;
-		this.agent_proxy = agent_proxy != null ? agent_proxy : 0;
-		this.agent_id = agent_id;
-		this.time_to_first_byte = time_to_first_byte;
-		this.thread_name = thread_name;
-		this.host = host;
-	}
-	
-
 	public ServletLogEntry(HttpServletRequest httpRequest, HttpServletResponse httpResponse, Optional<HttpSession> session, long elapsed) {
-		this(Instant.now(), httpRequest.getRemoteAddr(), httpRequest.getLocalAddr(), httpRequest.getMethod(), httpRequest.getPathInfo(),
-				Optional.ofNullable(httpRequest.getQueryString()).filter(s -> s != null && !s.isEmpty())
-					.map(qs -> '?' + httpRequest.getQueryString()).orElse(null), httpRequest.getProtocol(), httpResponse.getStatus(), 0, httpRequest.getHeader("referer"), httpRequest.getHeader("user-agent"), elapsed,
-				session.map(HttpSession::getId).orElse(null), (Long) session.map(s -> s.getAttribute("user_id")).orElse(null), (Integer) session.map(s -> s.getAttribute("agent_proxy")).orElse(null), ServletLogEntry.getCookie(httpRequest, "agent_device_id")
-						.map(Cookie::getValue).orElse(null), 0, Thread.currentThread().getName(), httpRequest.getHeader("host"));
+		Integer agent_proxy = (Integer) session.map(s -> s.getAttribute("agent_proxy")).orElse(null);
+		this.server_ts = Instant.now();
+		
+		String xff = httpRequest.getHeader("x-forwarded-for");
+		if(xff != null) {
+			this.remote_ip = xff.split(",")[0];
+		}
+		else {
+			this.remote_ip = httpRequest.getRemoteAddr();
+		}
+		
+		this.local_ip = httpRequest.getLocalAddr();
+		this.method = httpRequest.getMethod();
+		this.url = httpRequest.getPathInfo();
+		this.query_string = Optional.ofNullable(httpRequest.getQueryString()).filter(s -> s != null && !s.isEmpty())
+							.map(qs -> '?' + httpRequest.getQueryString()).orElse(null);
+		this.protocol = httpRequest.getProtocol();
+		this.http_status = httpResponse.getStatus();
+		this.bytes_sent = 0;
+		this.referer = httpRequest.getHeader("referer");
+		this.user_agent = httpRequest.getHeader("user-agent");
+		this.time_elapsed = elapsed;
+		this.session_id = session.map(HttpSession::getId).orElse(null);
+		this.user_id = (Long) session.map(s -> s.getAttribute("user_id")).orElse(null);
+		this.agent_proxy = agent_proxy != null ? agent_proxy : 0;
+		this.agent_id = ServletLogEntry.getCookie(httpRequest, "agent_device_id")
+								.map(Cookie::getValue).orElse(null);
+		this.time_to_first_byte = 0;
+		this.thread_name = Thread.currentThread().getName();
+		this.host = httpRequest.getHeader("host");
 	}
 
 
