@@ -4,6 +4,8 @@ import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -32,7 +34,21 @@ import com.amazonaws.regions.DefaultAwsRegionProviderChain;
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3Client;
-import com.amazonaws.services.s3.model.*;
+import com.amazonaws.services.s3.model.CompressionType;
+import com.amazonaws.services.s3.model.ExpressionType;
+import com.amazonaws.services.s3.model.GetObjectRequest;
+import com.amazonaws.services.s3.model.InputSerialization;
+import com.amazonaws.services.s3.model.JSONInput;
+import com.amazonaws.services.s3.model.JSONOutput;
+import com.amazonaws.services.s3.model.JSONType;
+import com.amazonaws.services.s3.model.ListObjectsV2Request;
+import com.amazonaws.services.s3.model.ListObjectsV2Result;
+import com.amazonaws.services.s3.model.ObjectMetadata;
+import com.amazonaws.services.s3.model.OutputSerialization;
+import com.amazonaws.services.s3.model.S3Object;
+import com.amazonaws.services.s3.model.S3ObjectSummary;
+import com.amazonaws.services.s3.model.SelectObjectContentRequest;
+import com.amazonaws.services.s3.model.SelectObjectContentResult;
 import com.amazonaws.util.IOUtils;
 import com.fasterxml.jackson.core.JsonGenerationException;
 import com.fasterxml.jackson.core.JsonParseException;
@@ -41,6 +57,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.util.StdDateFormat;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -182,6 +199,7 @@ public class AwsS3Template {
 	}
 
 	private byte[] fetch(AwsS3FetchParams parameterObject) {
+		long started = System.currentTimeMillis();
 		try {
 			File cacheFile = cacheLocation(parameterObject.path);
 			final boolean CACHE_FILE_EXISTS = cacheFile.exists();
@@ -211,9 +229,10 @@ public class AwsS3Template {
 					return Files.readAllBytes(cacheFile.toPath());
 				} else {
 					try (InputStream is = s3o.getObjectContent()) {
-						logger.info(
-								"Fetching from S3: " + parameterObject.path);
 						byte[] data = IOUtils.toByteArray(is);
+						logger.info(
+								"fetched " + data.length + " bytes from s3://" + bucket + "/" + parameterObject.path
+								+ " in " + (System.currentTimeMillis()-started)/1000.0 + "s");
 						if (!parameterObject.noSave) {
 							cacheWrite(cacheFile, data);
 						}
@@ -230,6 +249,11 @@ public class AwsS3Template {
 	private void cacheWrite(File cacheFile, byte[] data) throws IOException {
 		Files.createDirectories(cacheFile.toPath().getParent());
 		Files.write(cacheFile.toPath(), data);
+	}
+
+	private FileOutputStream cacheOutputStream(File cacheFile) throws IOException {
+		Files.createDirectories(cacheFile.toPath().getParent());
+		return new FileOutputStream(cacheFile);
 	}
 
 	public File cacheLocation(String path) {
@@ -344,28 +368,36 @@ public class AwsS3Template {
 
 	/**
 	 * Write objects to S3, in one-per-line Athena-compatible format or for
-	 * retrieval with getList().
+	 * retrieval with getList(). Writes to a local file first, which reduces
+	 * memory usage and also serves as a cache. 
 	 * 
 	 * @param path
 	 * @param list
 	 * @param cls
+	 * @return Returns the local cache file.
 	 */
-	public <T> void putList(String path, Class<T> cls, Collection<T> list) {
+	public <T> File putList(String path, Class<T> cls, Collection<T> list) {
+		ObjectWriter writerFor = objectMapper.writerFor(cls);
+		File tempLocation = cacheLocation(path + "~temp");
+		try(FileOutputStream cacheOut = cacheOutputStream(tempLocation);
+			GZIPOutputStream gzo = new GZIPOutputStream(cacheOut)) {
 
-		String data = list.stream().map(t -> {
-			try {
-				return objectMapper.writerFor(cls).writeValueAsString(t);
-			} catch (JsonProcessingException e) {
-				throw new RuntimeException(e);
+			for(T item: list) {
+				gzo.write(writerFor.writeValueAsBytes(item));
+				gzo.write('\n');
 			}
-		}).collect(Collectors.joining("\n"));
-
-		// we can't fix S3, so any IOException is considered a fault
-		try {
-			gzipWrite(path, data);
-		} catch (IOException e) {
-			throw new RuntimeException(e);
+		} catch (IOException e1) {
+			throw new RuntimeException(e1);
 		}
+
+		// rename-after-write to prevent creation of partially written files
+		File cacheLocation = cacheLocation(path);
+		cacheLocation.delete();
+		tempLocation.renameTo(cacheLocation);
+		
+		// write to S3
+		gzipMetaWrite(path, cacheLocation);
+		return cacheLocation;
 	}
 
 	/**
@@ -446,6 +478,27 @@ public class AwsS3Template {
 		s3.putObject(bucket, path, new ByteArrayInputStream(ba), meta);
 		logger.info(
 				"wrote " + ba.length + " bytes to s3://" + bucket + "/" + path);
+	}
+
+	public void gzipMetaWrite(String path, File file) {
+		long started = System.currentTimeMillis();
+		AmazonS3Client s3 = getClient();
+		ObjectMetadata meta = new ObjectMetadata();
+		long length = file.length();
+		meta.setContentLength(length);
+		meta.setContentType("application/json");
+		meta.setContentEncoding("gzip");
+		meta.setLastModified(new Date(file.lastModified()));
+		try(FileInputStream fis = new FileInputStream(file)) {
+			s3.putObject(bucket, path, fis, meta);
+		} catch (FileNotFoundException e) {
+			throw new RuntimeException(e);
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+		logger.info(
+				"wrote " + length + " bytes to s3://" + bucket + "/" + path
+				+ " in " + (System.currentTimeMillis()-started)/1000.0 + "s");
 	}
 
 	public void setRegion(String region) {
