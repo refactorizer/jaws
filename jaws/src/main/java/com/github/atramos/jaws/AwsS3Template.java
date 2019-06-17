@@ -22,6 +22,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.ZipEntry;
@@ -169,7 +170,7 @@ public class AwsS3Template {
 			throw new RuntimeException(e);
 		}
 	}
-
+	
 	
 	public List<JsonNode> select(AmazonS3Client s3, String path, Collection<String> columns) {
 		
@@ -338,6 +339,82 @@ public class AwsS3Template {
 				}
 				return list;
 			}
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+	}
+
+	/**
+	 * Reduce memory utilization by streaming through the cache file.
+	 * This method is more opinionated than the equivalent getList() method:
+	 * - Assumes the file is compressed.
+	 * - Caching cannot be turned off.
+	 * 
+	 * @param <T>
+	 * @param cls
+	 * @param parms
+	 * @return
+	 */
+	public <T> Stream<T> streamThroughCache(String path, Class<T> cls, boolean skipCheck) {
+		try {
+			File cacheFile = cacheLocation(path);
+			final boolean CACHE_FILE_EXISTS = cacheFile.exists();
+
+			if (skipCheck && CACHE_FILE_EXISTS) {
+				return unzipStream(cacheFile, cls);
+			}
+
+			AmazonS3Client s3 = getClient();
+
+			final GetObjectRequest getObjectRequest
+					= new GetObjectRequest(bucket, path);
+
+			if (CACHE_FILE_EXISTS) {
+				final long fileTime = cacheFile.lastModified();
+				getObjectRequest.setModifiedSinceConstraint(new Date(fileTime));
+			}
+
+			long started = System.currentTimeMillis();
+			
+			try (S3Object s3o = s3.getObject(getObjectRequest)) {
+				if (s3o == null && CACHE_FILE_EXISTS) {
+					logger.info(path
+							+ ": cached file is still valid");
+					return unzipStream(cacheFile, cls);
+				} else {
+					Files.createDirectories(cacheFile.toPath().getParent());
+					File temp = cacheLocation(path + "~temp");
+					try (InputStream is = s3o.getObjectContent();
+						 FileOutputStream fos = new FileOutputStream(temp)) {
+						IOUtils.copy(is, fos);
+						fos.close();
+						cacheFile.delete();
+						temp.renameTo(cacheFile); // use rename to prevent partially-written crash files
+						logger.info(
+								"fetched " + cacheFile.length() + " bytes from s3://" + bucket + "/" + path
+								+ " in " + (System.currentTimeMillis()-started)/1000.0 + "s");
+						return unzipStream(cacheFile, cls);
+					}
+				}
+			}
+
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+	}
+
+	@SuppressWarnings("resource")
+	protected <T> Stream<T> unzipStream(File cacheFile, Class<T> cls) throws FileNotFoundException {
+		try {
+			return new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(cacheFile))))
+					.lines()
+					.map(json -> {
+						try {
+							return objectMapper.readValue(json, cls);
+						} catch (IOException e) {
+							throw new RuntimeException(e);
+						}
+					});
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
