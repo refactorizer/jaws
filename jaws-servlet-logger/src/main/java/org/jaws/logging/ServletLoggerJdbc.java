@@ -9,6 +9,7 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.Instant;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Optional;
@@ -24,12 +25,7 @@ import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 public class ServletLoggerJdbc implements Filter {
-
-	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	private String dbUrl = null;
 	private String driver;
@@ -128,7 +124,7 @@ public class ServletLoggerJdbc implements Filter {
 				return;
 
 			} catch (SQLException e) {
-				logger.warn("Failed to log to database! Will retry another " + retries + " times", e);
+				System.err.println(Instant.now() + ": Failed to log to database! Will retry another " + retries + " times: " + e.toString());
 			}
 		}
 	}
