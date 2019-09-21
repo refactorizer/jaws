@@ -3,4 +3,4 @@ version: 0.2
 phases:
   build:
     commands:
-      - mvn -f jaws/pom.xml deploy
+      - mvn -f jaws-s3-json-db/pom.xml deploy
