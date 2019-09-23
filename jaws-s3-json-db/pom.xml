@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 
 	<groupId>com.github.atramos</groupId>
-	<artifactId>jaws</artifactId>
+	<artifactId>jaws-s3-json-db</artifactId>
 	<version>0.48</version>
 	<packaging>jar</packaging>
 
