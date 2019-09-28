@@ -3,7 +3,6 @@ package org.jaws.logging;
 import static java.util.stream.Collectors.toList;
 
 import java.io.IOException;
-import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -35,15 +34,10 @@ public class CloudwatchClient {
 	protected static CloudwatchClient instance;
 
 	public static synchronized CloudwatchClient getInstance() {
-		try {
-			if (instance == null) {
-				instance = new CloudwatchClient();
-				instance.init();
-			}
-			return instance;
-		} catch (IOException e) {
-			throw new RuntimeException(e);
+		if (instance == null) {
+			instance = new CloudwatchClient();
 		}
+		return instance;
 	}
 
 	/**
@@ -87,37 +81,30 @@ public class CloudwatchClient {
 	public CloudwatchClient() {
 		super();
 		try {
-			logGroupName = System.getProperty("LOG_GROUP", "/tomcat/default");
-			logStreamName = InetAddress.getLocalHost().getHostName() + "." + Long.toHexString(System.currentTimeMillis()); 
-			init();
+			init(System.getProperty("LOG_GROUP", "/default"), "default");
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
 	}
 
-	public CloudwatchClient(Formatter formatter, String logGroupName,
-			String logStreamName) {
-		super();
-		this.setFormatter(formatter);
-		this.setLogGroupName(logGroupName);
-		this.setLogStreamName(logStreamName);
-		this.flush();
+	/**
+	 * Alternate constructor required for unit-test.
+	 * 
+	 * @param formatter
+	 * @param logGroup
+	 * @param logStream
+	 */
+	protected CloudwatchClient(Formatter formatter, String logGroup, String logStream) {
+		try {
+			this.formatter = formatter;
+			init(logGroup, logStream);
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
 	}
 
-	public void setLogGroupName(String logGroupName) {
-		this.logGroupName = logGroupName;
-	}
-
-	public void setLogStreamName(String logStreamName) {
-		this.logStreamName = logStreamName;
-	}
-
-	public Formatter getFormatter() {
-		return formatter;
-	}
-
-	public void setFormatter(Formatter formatter) {
-		this.formatter = formatter;
+	public String getLogGroupName() {
+		return logGroupName;
 	}
 
 	private synchronized void sendMessages() {
@@ -170,7 +157,7 @@ public class CloudwatchClient {
 		}
 	}
 
-	protected void initializeBackgroundThreads() {
+	protected synchronized void initializeBackgroundThreads() {
 		exe = new ScheduledThreadPoolExecutor(1);
 		exe.scheduleAtFixedRate(() -> {
 			if (loggingEventsQueue.size() > 0) {
@@ -179,7 +166,11 @@ public class CloudwatchClient {
 		}, 0, 1, TimeUnit.SECONDS);
 	}
 
-	private void initializeCloudwatchResources() {
+	public synchronized void initializeCloudwatchResources(String logGroupName, String logStreamName) {
+		
+		this.logGroupName = logGroupName;
+		this.logStreamName = logStreamName;
+		
 		DescribeLogGroupsRequest describeLogGroupsRequest
 				= new DescribeLogGroupsRequest();
 		describeLogGroupsRequest.setLogGroupNamePrefix(logGroupName);
@@ -213,11 +204,11 @@ public class CloudwatchClient {
 		}
 	}
 
-	public void publish(LogRecord record) {
+	public synchronized void publish(LogRecord record) {
 		loggingEventsQueue.add(record);
 	}
 
-	public synchronized void init() throws IOException {
+	private synchronized void init(String logGroupName, String logStreamName) throws IOException {
 		System.err.println(
 				"Initializing CloudwatchAppender with LogGroupName("
 						+ logGroupName + ") and LogStreamName("
@@ -227,7 +218,7 @@ public class CloudwatchClient {
 				.withRegion(new DefaultAwsRegionProviderChain().getRegion())
 				.build();
 
-		initializeCloudwatchResources();
+		initializeCloudwatchResources(logGroupName, logStreamName);
 		
 		initializeBackgroundThreads();
 		
@@ -238,11 +229,14 @@ public class CloudwatchClient {
 		try {
 			exe.awaitTermination(2, TimeUnit.SECONDS);
 		} catch (InterruptedException e) {
+			exe.shutdownNow();
 		}
-		flush();
+		finally {
+			flush();
+		}
 	}
 
-	public void flush() {
+	public synchronized void flush() {
 		sendMessages();
 	}
 }

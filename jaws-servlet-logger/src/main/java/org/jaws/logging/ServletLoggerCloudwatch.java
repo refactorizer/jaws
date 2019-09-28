@@ -13,7 +13,11 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
+import org.joda.time.Instant;
+
+import com.amazonaws.util.StringUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 public class ServletLoggerCloudwatch implements Filter {
@@ -32,6 +36,15 @@ public class ServletLoggerCloudwatch implements Filter {
 
 	@Override
 	public void init(FilterConfig filterConfig) throws ServletException {
+		String path = filterConfig.getServletContext().getContextPath();
+		if(StringUtils.isNullOrEmpty(path)) {
+			path = "ROOT";
+		}
+		client.initializeCloudwatchResources(client.getLogGroupName(), path + "/" 
+				+ Instant.now().toString().replace(':', '.'));
+		ObjectNode on = new ObjectNode(JsonNodeFactory.instance);
+		on.put("filterName", filterConfig.getFilterName());
+		client.publish(new JsonLogRecord(on));
 	}
 
 	@Override
