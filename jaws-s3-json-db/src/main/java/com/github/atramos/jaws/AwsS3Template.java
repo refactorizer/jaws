@@ -73,6 +73,10 @@ public class AwsS3Template {
 
 	private String bucket;
 
+	public String getBucket() {
+		return bucket;
+	}
+
 	public ObjectMapper objectMapper = new ObjectMapper();
 	{
 		objectMapper.registerModule(new JavaTimeModule());

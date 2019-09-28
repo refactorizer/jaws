@@ -24,11 +24,18 @@
 			<version>5.1.40</version>
 		</dependency>
 
-		<!-- https://mvnrepository.com/artifact/com.amazonaws/aws-java-sdk-logs -->
+		<!-- https://aws.amazon.com/blogs/developer/java-sdk-bundle/ -->
 		<dependency>
 			<groupId>com.amazonaws</groupId>
-			<artifactId>aws-java-sdk-logs</artifactId>
+			<artifactId>aws-java-sdk-bundle</artifactId>
 			<version>1.11.578</version>
+		</dependency>
+
+		<!-- https://mvnrepository.com/artifact/com.fasterxml.jackson.core/jackson-core -->
+		<dependency>
+			<groupId>com.fasterxml.jackson.core</groupId>
+			<artifactId>jackson-databind</artifactId>
+			<version>2.9.9</version>
 		</dependency>
 
 		<dependency>
@@ -36,7 +43,7 @@
 			<artifactId>javax.servlet-api</artifactId>
 			<version>3.1.0</version>
 		</dependency>
-		
+
 		<dependency>
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>
