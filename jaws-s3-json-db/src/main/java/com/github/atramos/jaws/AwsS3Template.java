@@ -17,12 +17,15 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
+import java.util.Spliterator;
+import java.util.Spliterators.AbstractSpliterator;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.ZipEntry;
@@ -607,6 +610,34 @@ public class AwsS3Template {
 			req.setContinuationToken(result.getNextContinuationToken());
 		} while (result.isTruncated() == true);
 	}
+	
+	public Stream<String> streamKeys(String prefix) {
+		Spliterator<ListObjectsV2Result> spliter = new AbstractSpliterator<ListObjectsV2Result>(Long.MAX_VALUE, 0) {
+			
+			AmazonS3Client s3client = getClient();
+			
+			ListObjectsV2Request req = new ListObjectsV2Request()
+					.withBucketName(bucket).withPrefix(prefix);
+			
+			@Override
+			public boolean tryAdvance(Consumer<? super ListObjectsV2Result> action) {
+				if(req == null) {
+					return false;
+				}
+				ListObjectsV2Result result = s3client.listObjectsV2(req);
+				req.setContinuationToken(result.getNextContinuationToken());
+				action.accept(result);
+				if(!result.isTruncated()) {
+					req = null;
+					s3client = null;
+				}
+				return true;
+			}
+		};
+		Stream<ListObjectsV2Result> baseStream = StreamSupport.stream(spliter, false);
+		return baseStream.flatMap(result -> result.getObjectSummaries().stream().map(S3ObjectSummary::getKey));
+	}
+
 
 	/**
 	 * list keys with their corresponding lastModified timestamps.
