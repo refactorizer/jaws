@@ -611,7 +611,7 @@ public class AwsS3Template {
 		} while (result.isTruncated() == true);
 	}
 	
-	public Stream<String> streamKeys(String prefix) {
+	public Stream<MetaFile> streamKeys(String prefix) {
 		Spliterator<ListObjectsV2Result> spliter = new AbstractSpliterator<ListObjectsV2Result>(Long.MAX_VALUE, 0) {
 			
 			AmazonS3Client s3client = getClient();
@@ -635,7 +635,8 @@ public class AwsS3Template {
 			}
 		};
 		Stream<ListObjectsV2Result> baseStream = StreamSupport.stream(spliter, false);
-		return baseStream.flatMap(result -> result.getObjectSummaries().stream().map(S3ObjectSummary::getKey));
+		return baseStream.flatMap(result -> result.getObjectSummaries().stream()
+				.map(os -> new MetaFile(os.getKey(), os.getSize(), os.getLastModified().toInstant())));
 	}
 
 
