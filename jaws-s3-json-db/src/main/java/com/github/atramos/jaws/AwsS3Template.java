@@ -17,7 +17,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
-import java.util.Spliterator;
 import java.util.Spliterators.AbstractSpliterator;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -610,9 +609,9 @@ public class AwsS3Template {
 			req.setContinuationToken(result.getNextContinuationToken());
 		} while (result.isTruncated() == true);
 	}
-	
-	public Stream<MetaFile> streamKeys(String prefix) {
-		Spliterator<ListObjectsV2Result> spliter = new AbstractSpliterator<ListObjectsV2Result>(Long.MAX_VALUE, 0) {
+
+	public Stream<List<S3ObjectSummary>> streamKeys(String prefix) {
+		return StreamSupport.stream(new AbstractSpliterator<List<S3ObjectSummary>>(Long.MAX_VALUE, 0) {
 			
 			AmazonS3Client s3client = getClient();
 			
@@ -620,23 +619,20 @@ public class AwsS3Template {
 					.withBucketName(bucket).withPrefix(prefix);
 			
 			@Override
-			public boolean tryAdvance(Consumer<? super ListObjectsV2Result> action) {
+			public boolean tryAdvance(Consumer<? super List<S3ObjectSummary>> action) {
 				if(req == null) {
 					return false;
 				}
 				ListObjectsV2Result result = s3client.listObjectsV2(req);
 				req.setContinuationToken(result.getNextContinuationToken());
-				action.accept(result);
+				action.accept(result.getObjectSummaries());
 				if(!result.isTruncated()) {
 					req = null;
 					s3client = null;
 				}
 				return true;
 			}
-		};
-		Stream<ListObjectsV2Result> baseStream = StreamSupport.stream(spliter, false);
-		return baseStream.flatMap(result -> result.getObjectSummaries().stream()
-				.map(os -> new MetaFile(os.getKey(), os.getSize(), os.getLastModified().toInstant())));
+		}, false);
 	}
 
 
