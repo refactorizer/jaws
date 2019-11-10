@@ -205,7 +205,7 @@ public class AwsS3Template {
 		}
 	}
 
-	public InputStream openInputStream(AwsS3FetchParams param) {
+	public InputStream openInputStream(AmazonS3Client s3, AwsS3FetchParams param) {
 		long started = System.currentTimeMillis();
 		try {
 			File cacheFile = cacheLocation(param.path);
@@ -217,8 +217,6 @@ public class AwsS3Template {
 				else
 					return new FileInputStream(cacheFile);
 			}
-
-			AmazonS3Client s3 = getClient();
 
 			final GetObjectRequest getObjectRequest
 					= new GetObjectRequest(bucket, param.path);
@@ -610,32 +608,6 @@ public class AwsS3Template {
 		} while (result.isTruncated() == true);
 	}
 
-	public Stream<List<S3ObjectSummary>> streamKeys(String prefix) {
-		return StreamSupport.stream(new AbstractSpliterator<List<S3ObjectSummary>>(Long.MAX_VALUE, 0) {
-			
-			AmazonS3Client s3client = getClient();
-			
-			ListObjectsV2Request req = new ListObjectsV2Request()
-					.withBucketName(bucket).withPrefix(prefix);
-			
-			@Override
-			public boolean tryAdvance(Consumer<? super List<S3ObjectSummary>> action) {
-				if(req == null) {
-					return false;
-				}
-				ListObjectsV2Result result = s3client.listObjectsV2(req);
-				req.setContinuationToken(result.getNextContinuationToken());
-				action.accept(result.getObjectSummaries());
-				if(!result.isTruncated()) {
-					req = null;
-					s3client = null;
-				}
-				return true;
-			}
-		}, false);
-	}
-
-
 	/**
 	 * list keys with their corresponding lastModified timestamps.
 	 * 
@@ -668,7 +640,15 @@ public class AwsS3Template {
 	}
 
 	public boolean exists(String path) {
-		AmazonS3Client s3client = getClient();
+		AmazonS3Client client = getClient();
+		try {
+			return exists(client, path);
+		}
+		finally {
+			client.shutdown();
+		}
+	}
+	public boolean exists(AmazonS3Client s3client, String path) {
 		return s3client.doesObjectExist(bucket, path);
 	}
 
@@ -756,5 +736,32 @@ public class AwsS3Template {
 			throw new RuntimeException(e);
 		}
 	}
+
+	public Stream<List<S3ObjectSummary>> streamKeys(String prefix) {
+		return StreamSupport.stream(new AbstractSpliterator<List<S3ObjectSummary>>(Long.MAX_VALUE, 0) {
+			
+			AmazonS3Client client = getClient();
+
+			ListObjectsV2Request req = new ListObjectsV2Request()
+					.withBucketName(bucket).withPrefix(prefix);
+			
+			@Override
+			public boolean tryAdvance(Consumer<? super List<S3ObjectSummary>> action) {
+				if(req == null) {
+					return false;
+				}
+				ListObjectsV2Result result = client.listObjectsV2(req);
+				req.setContinuationToken(result.getNextContinuationToken());
+				action.accept(result.getObjectSummaries());
+				if(!result.isTruncated()) {
+					req = null;
+					client.shutdown();
+					client = null;
+				}
+				return true;
+			}
+		}, false);
+	}
+
 
 }
