@@ -101,7 +101,11 @@ public class AwsS3LineSpliterator<LINE> extends AbstractSpliterator<AwsS3LineInp
 			}
 			handle = new InputStreamHandler(unopenedFile, fileOpener.apply(unopenedFile));
 		}
-		for (int i = 0; i < maxBuffer; ++i) {
+		int len;
+		synchronized(sharedBuffer) {
+			len = sharedBuffer.size();
+		}
+		for (int i = len; i < maxBuffer; ++i) {
 			LINE line = lineReader.apply(handle.inputStream);
 			if (line != null) {
 				synchronized (sharedBuffer) {
