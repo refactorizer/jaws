@@ -6,8 +6,6 @@ import java.util.logging.Formatter;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
 
-import org.jaws.logging.CloudwatchClient;
-import org.jaws.logging.JsonLogRecord;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -16,6 +14,7 @@ import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
+import com.amazonaws.SDKGlobalConfiguration;
 import com.amazonaws.services.logs.AWSLogsClient;
 import com.amazonaws.services.logs.model.InputLogEvent;
 import com.amazonaws.services.logs.model.PutLogEventsRequest;
@@ -25,13 +24,17 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 public class CloudwatchHandlerTest {
 
+	static {
+		System.setProperty(SDKGlobalConfiguration.AWS_REGION_SYSTEM_PROPERTY, "us-west-1");
+	}
+
 	Formatter formatter = new Formatter() {
 		@Override
 		public String format(LogRecord record) {
 			return "FORMATTED:" + record.getMessage();
 		}
 	};
-
+	
 	CloudwatchClient ch
 			= CloudwatchClient.instance = new CloudwatchClient(formatter, "logGroupName", "logStreamName");
 
