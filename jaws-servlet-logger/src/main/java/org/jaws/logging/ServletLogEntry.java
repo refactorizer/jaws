@@ -23,7 +23,6 @@ public class ServletLogEntry {
 	final public String query_string;
 	final public String protocol;
 	final public int http_status;
-	final public Integer bytes_sent;
 	final public String referer;
 	final public String user_agent;
 	final public long time_elapsed;
@@ -31,12 +30,12 @@ public class ServletLogEntry {
 	final public Long user_id;
 	final public int agent_proxy;
 	final public String agent_id;
-	final public Integer time_to_first_byte;
 	final public String thread_name;
 	final public String host;
+	final public String pagename;
+	final public String listing_id;
 
 	public ServletLogEntry(HttpServletRequest httpRequest, HttpServletResponse httpResponse, Optional<HttpSession> session, long elapsed) {
-		Integer agent_proxy = (Integer) session.map(s -> s.getAttribute("agent_proxy")).orElse(null);
 		this.server_ts = Instant.now();
 		
 		String xff = httpRequest.getHeader("x-forwarded-for");
@@ -54,18 +53,23 @@ public class ServletLogEntry {
 							.map(qs -> '?' + httpRequest.getQueryString()).orElse(null);
 		this.protocol = httpRequest.getProtocol();
 		this.http_status = httpResponse.getStatus();
-		this.bytes_sent = 0;
 		this.referer = httpRequest.getHeader("referer");
 		this.user_agent = httpRequest.getHeader("user-agent");
 		this.time_elapsed = elapsed;
 		this.session_id = session.map(HttpSession::getId).orElse(null);
-		this.user_id = (Long) session.map(s -> s.getAttribute("user_id")).orElse(null);
-		this.agent_proxy = agent_proxy != null ? agent_proxy : 0;
-		this.agent_id = ServletLogEntry.getCookie(httpRequest, "agent_device_id")
-								.map(Cookie::getValue).orElse(null);
-		this.time_to_first_byte = 0;
 		this.thread_name = Thread.currentThread().getName();
 		this.host = httpRequest.getHeader("host");
+
+		/**
+		 * custom attributes
+		 */
+		this.user_id = (Long) session.map(s -> s.getAttribute("user_id")).orElse(null);
+		this.agent_proxy = (Integer) session.map(s -> s.getAttribute("agent_proxy")).orElse(0);
+		this.agent_id = ServletLogEntry.getCookie(httpRequest, "agent_device_id")
+								.map(Cookie::getValue).orElse(null);
+		this.pagename = (String) httpRequest.getAttribute("pagename");
+		this.listing_id = (String) httpRequest.getAttribute("listing_id");
+				
 	}
 
 

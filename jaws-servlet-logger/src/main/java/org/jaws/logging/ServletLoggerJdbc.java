@@ -32,7 +32,7 @@ public class ServletLoggerJdbc implements Filter {
 	private String user;
 	private String password;
 
-	private final String sqlStatement = "insert into log_access (server_ts,remote_ip,local_ip,method,url,query_string,protocol,http_status,bytes_sent,referer,user_agent,time_elapsed,session_id,user_id,agent_proxy,agent_id,time_to_first_byte,thread_name,host) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+	private final String sqlStatement = "insert into log_access (server_ts,remote_ip,local_ip,method,url,query_string,protocol,http_status,referer,user_agent,time_elapsed,session_id,user_id,agent_proxy,agent_id,thread_name,host,pagename,listing_id) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 
 	@Override
 	public void init(FilterConfig filterConfig) throws ServletException {
@@ -100,7 +100,6 @@ public class ServletLoggerJdbc implements Filter {
 				statement.setString(++n, e.query_string);
 				statement.setString(++n, e.protocol);
 				statement.setInt(++n, e.http_status);
-				statement.setInt(++n, e.bytes_sent);
 				statement.setString(++n, e.referer);
 				statement.setString(++n, e.user_agent);
 				statement.setLong(++n, e.time_elapsed);
@@ -114,9 +113,10 @@ public class ServletLoggerJdbc implements Filter {
 				
 				statement.setInt(++n, e.agent_proxy);
 				statement.setString(++n, e.agent_id);
-				statement.setInt(++n, e.time_to_first_byte);
 				statement.setString(++n, e.thread_name);
 				statement.setString(++n, e.host);
+				statement.setString(++n, e.pagename);
+				statement.setString(++n, e.listing_id);
 
 				if (statement.executeUpdate() != 1) {
 					throw new SQLException("not inserted 1 row");
