@@ -86,4 +86,15 @@ public class ServletLogEntry {
 		return Optional.empty();
 	}
 
+
+	@Override
+	public String toString() {
+		return "ServletLogEntry [server_ts=" + server_ts + ", remote_ip=" + remote_ip + ", local_ip=" + local_ip
+				+ ", method=" + method + ", url=" + url + ", query_string=" + query_string + ", protocol=" + protocol
+				+ ", http_status=" + http_status + ", referer=" + referer + ", user_agent=" + user_agent
+				+ ", time_elapsed=" + time_elapsed + ", session_id=" + session_id + ", user_id=" + user_id
+				+ ", agent_proxy=" + agent_proxy + ", agent_id=" + agent_id + ", thread_name=" + thread_name + ", host="
+				+ host + ", pagename=" + pagename + ", listing_id=" + listing_id + "]";
+	}
+
 }
