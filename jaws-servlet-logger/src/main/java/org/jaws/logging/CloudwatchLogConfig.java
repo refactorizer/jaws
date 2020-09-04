@@ -11,6 +11,8 @@ public class CloudwatchLogConfig {
 
 	public CloudwatchLogConfig() {
 		
+		System.err.println(Instant.now() + ": " + getClass().getName() + " - class loaded");
+		
 		LogManager lm = LogManager.getLogManager();
 		
 		try(InputStream is = getClass().getClassLoader().getResourceAsStream("jaws-cloudwatch-logging.properties")) {
@@ -22,6 +24,7 @@ public class CloudwatchLogConfig {
 			e.printStackTrace();
 		}
 		
+		System.err.println(Instant.now() + ": " + getClass().getName() + " - config completed");
 	}
 	
 }

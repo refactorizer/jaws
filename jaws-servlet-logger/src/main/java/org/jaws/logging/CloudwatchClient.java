@@ -15,6 +15,8 @@ import java.util.logging.Formatter;
 import java.util.logging.LogRecord;
 import java.util.logging.SimpleFormatter;
 
+import org.joda.time.Instant;
+
 import com.amazonaws.regions.DefaultAwsRegionProviderChain;
 import com.amazonaws.services.logs.AWSLogs;
 import com.amazonaws.services.logs.AWSLogsClientBuilder;
@@ -31,9 +33,14 @@ import com.amazonaws.services.logs.model.PutLogEventsResult;
 
 public class CloudwatchClient {
 
+	static {
+		System.err.println(Instant.now() + ": " + CloudwatchClient.class.getName() + " - class loaded");
+	}
+	
 	protected static CloudwatchClient instance;
 
 	public static synchronized CloudwatchClient getInstance() {
+		
 		if (instance == null) {
 			instance = new CloudwatchClient();
 		}
@@ -209,8 +216,8 @@ public class CloudwatchClient {
 	}
 
 	private synchronized void init(String logGroupName, String logStreamName) throws IOException {
-		System.err.println(
-				"Initializing CloudwatchAppender with LogGroupName("
+		System.err.println(Instant.now() +
+				": Initializing CloudwatchAppender with LogGroupName("
 						+ logGroupName + ") and LogStreamName("
 						+ logStreamName + ")");
 			
@@ -221,7 +228,7 @@ public class CloudwatchClient {
 		initializeCloudwatchResources(logGroupName, logStreamName);
 		
 		initializeBackgroundThreads();
-		
+		System.err.println(Instant.now() + ": " + CloudwatchClient.class.getName() + " - init ok");
 	}
 
 	public synchronized void close() throws SecurityException {
