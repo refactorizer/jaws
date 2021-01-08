@@ -41,15 +41,10 @@ public class CloudwatchClient {
 	}
 
 	/**
-	 * The queue / buffer size
-	 */
-	private final static int queueLength = 1024;
-
-	/**
 	 * The queue used to buffer log entries
 	 */
 	private LinkedBlockingQueue<LogRecord> loggingEventsQueue
-			= new LinkedBlockingQueue<>(queueLength);
+                = new LinkedBlockingQueue<>();
 
 	/**
 	 * the AWS Cloudwatch Logs API client
