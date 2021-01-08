@@ -5,7 +5,7 @@
 
     <groupId>jaws</groupId>
     <artifactId>jaws-logger</artifactId>
-    <version>0.0.20200927-SNAPSHOT</version>
+    <version>0.0.20210108-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>jaws-logger</name>
