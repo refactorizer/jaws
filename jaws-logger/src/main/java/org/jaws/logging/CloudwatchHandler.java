@@ -17,7 +17,11 @@ public class CloudwatchHandler extends Handler {
 
 	@Override
 	public void close() throws SecurityException {
-		CloudwatchClient.getInstance().close();
-	}
+            synchronized (CloudwatchClient.class) {
+                if (CloudwatchClient.instance != null) {
+                    CloudwatchClient.instance.close();
+                }
+            }
+        }
 
 }
