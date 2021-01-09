@@ -13,7 +13,7 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <aws.version>1.11.519</aws.version>
+        <aws.version>1.11.934</aws.version>
         <s3-maven-repo>s3://dmh.bucket/maven/internal</s3-maven-repo>
     </properties>
 
