@@ -58,7 +58,7 @@ public class ServletLogEntry {
 		this.time_elapsed = elapsed;
 		this.session_id = session.map(HttpSession::getId).orElse(null);
 		this.thread_name = Thread.currentThread().getName();
-		this.host = httpRequest.getHeader("host");
+		this.host = Optional.ofNullable(httpRequest.getHeader("X-Custom-CloudFront-Virtual-Host")).orElse(httpRequest.getHeader("host"));
 
 		/**
 		 * custom attributes
