@@ -4,3 +4,4 @@ phases:
   build:
     commands:
       - mvn -f jaws-s3-json-db/pom.xml deploy
+      - mvn -f jaws-logger/pom.xml deploy
